@@ -1,3 +1,164 @@
+# Echo-TTS MLX
+
+> MLX port of [Echo-TTS](https://github.com/jordandare/echo-tts) — native Apple Silicon inference with quantization, quality presets, and a CLI. No PyTorch/CUDA required.
+
+**Model:** [jordand/echo-tts-base](https://huggingface.co/jordand/echo-tts-base) | **Demo:** [echo-tts-preview](https://huggingface.co/spaces/jordand/echo-tts-preview) | **Blog:** [Technical Details](https://jordandarefsky.com/blog/2025/echo/)
+
+## What This Port Adds
+
+- Native Apple Silicon inference via [MLX](https://github.com/ml-explore/mlx)
+- Quantization modes: `8bit`, `mxfp4`, `mixed` (34% less memory, 1.2-1.4× faster)
+- Quality presets: `draft`, `fast`, `balanced`, `quality`, `ultra`
+- Tail trimming: `latent`, `energy`, `f0`
+- Blockwise generation: streaming, audio continuations, `--blockwise 128,128,64`
+- CLI: `echo-tts-mlx generate`, `convert`, `info`
+- Python API: `EchoTTS.from_pretrained()` / `.generate()` / `.save_audio()`
+
+## Installation
+
+**Requirements:** macOS with Apple Silicon (M1+), Python >= 3.10
+
+```bash
+# From source
+pip install .
+
+# With conversion tools (requires PyTorch)
+pip install ".[convert]"
+
+# Development
+pip install ".[dev]"
+
+# Or via requirements.txt
+pip install -r requirements.txt
+```
+
+## Quick Start
+
+### 1. Convert upstream weights
+
+```bash
+huggingface-cli download jordand/echo-tts-base --local-dir weights/upstream
+huggingface-cli download jordand/fish-s1-dac-min --local-dir weights/upstream
+
+echo-tts-mlx convert \
+  --dit weights/upstream/dit_model.safetensors \
+  --dac weights/upstream/dac_model.safetensors \
+  --pca weights/upstream/pca_state.safetensors \
+  --output weights/converted/
+```
+
+### 2. Generate speech
+
+```bash
+echo-tts-mlx generate \
+  --text "Hello, this is Echo TTS running on Apple Silicon." \
+  --preset quality \
+  --output out.wav
+```
+
+### 3. Voice cloning
+
+```bash
+echo-tts-mlx generate \
+  --text "Hello, this is a cloned voice." \
+  --speaker reference.wav \
+  --preset quality \
+  --output cloned.wav
+```
+
+### 4. Quantized inference
+
+```bash
+echo-tts-mlx generate \
+  --text "Quantized inference test." \
+  --quantize 8bit \
+  --preset balanced \
+  --output fast.wav
+```
+
+## Python API
+
+```python
+from echo_tts_mlx import EchoTTS
+
+model = EchoTTS.from_pretrained("weights/converted", dtype="float16")
+speaker_audio, sr = model.load_audio("reference.wav")
+
+audio = model.generate(
+    text="Hello, this is a test.",
+    speaker_audio=speaker_audio,
+    num_steps=32,
+    cfg_scale_text=3.0,
+    cfg_scale_speaker=8.0,
+    trim_mode="energy",
+    seed=42,
+)
+
+model.save_audio(audio, "output.wav")
+```
+
+## Quality Presets
+
+| Preset | Steps | Speed | Use Case |
+|---|---|---|---|
+| **draft** | 4 | Fastest | Rapid prototyping, testing pipeline |
+| **fast** | 8 | Fast | Experimental |
+| **balanced** | 16 | Balanced | OK quality |
+| **quality** | 32 | Slower | Good quality |
+| **ultra** | 40 | Slowest | Maximum quality |
+
+## Quantization Modes
+
+| Mode | Memory | Speed | Quality |
+|---|---|---|---|
+| **f16** | ~6.0 GB | 1.0× (baseline) | Reference |
+| **8-bit** | ~4.0 GB | 1.2-1.4× faster | MCD 2.9-6.5 dB |
+| **mxfp4** | ~3.5 GB | 1.4-1.5× faster | Experimental |
+| **mixed** | ~3.8 GB | 1.3-1.4× faster | Experimental |
+
+## Documentation
+
+- **[User Guide](docs/GUIDE.md)** — setup, CLI reference, tips, troubleshooting
+- [Architecture](docs/ARCHITECTURE.md) — pipeline overview, model structure
+- [Audio Quality Controls](docs/AUDIO_QUALITY.md) — trim modes, truncation
+- [Quantization Guide](docs/QUANTIZATION.md) — usage, benchmarks, quality
+- [Benchmarks](docs/BENCHMARKS.md) — results and methodology
+- [Project Spec](docs/SPEC.md) — full implementation spec
+- [Performance Spec](docs/PERFORMANCE_SPEC.md) — optimization strategies
+
+## License
+
+**Code:** MIT (except where noted)
+
+**`autoencoder.py` and `_dac_core.py`:** Apache 2.0 (derived from upstream Echo-TTS)
+
+**Model weights and generated audio:** CC-BY-NC-SA-4.0 (inherited from [Echo-TTS](https://huggingface.co/jordand/echo-tts-base) and [Fish Speech S1-DAC](https://github.com/fishaudio/fish-speech))
+
+See [LICENSE](LICENSE), [LICENSE-APACHE](LICENSE-APACHE), and upstream repos for details.
+
+## Credits
+
+- [Echo-TTS](https://github.com/jordandare/echo-tts) by [Jordan Darefsky](https://jordandarefsky.com)
+  - Original work made possible by the TPU Research Cloud (TRC)
+- [Fish Speech S1-DAC](https://github.com/fishaudio/fish-speech) by Fish Audio
+- [MLX](https://github.com/ml-explore/mlx) by Apple
+
+### Built With AI
+
+This MLX port was developed using an AI-assisted workflow:
+
+- **Spec & Validation:** Claude Opus 4.6
+- **Implementation:** GPT-5.3-Codex
+- **Orchestration:** [@mznoj](https://github.com/mznoj) & [@mattznojassist](https://github.com/mattznojassist) ([OpenClaw](https://openclaw.ai))
+
+---
+
+# Original Echo-TTS README
+
+> The following is the original README from [jordandare/echo-tts](https://github.com/jordandare/echo-tts), included for reference.
+
+---
+
 # Echo-TTS
 
 A multi-speaker text-to-speech model with speaker reference conditioning. See the [blog post](https://jordandarefsky.com/blog/2025/echo/) for technical details.

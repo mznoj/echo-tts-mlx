@@ -1,8 +1,33 @@
-.DS_Store
+# Python
 __pycache__/
+benchmarks/__pycache__/
 *.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
 .venv/
 venv/
-.env
-.idea/
+env/
+
+# IDE
 .vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Weights (large files — don't commit)
+weights/
+*.safetensors
+
+# Test fixtures (generated)
+fixtures/*.npy
+
+# Logs & implementation artifacts
+*.log
+.coverage
+logs/
